@@ -1,0 +1,66 @@
+use [WideWorldImporters]
+select * from [Sales].[SpecialDeals];
+
+--1 Mostrar la fecha en la cual se han realizado la mayor cantidad de órdenes.
+declare @AGRUPAR int =0;
+select top 1 count(*) as contador, CONVERT(CHAR(10),[OrderDate],103) from [Sales].[Orders] group by CONVERT(char(10),[OrderDate],103) order by contador desc
+
+--2 Mostrar listado de los productos del proveedor Litware, Inc.
+select [StockItemID],[StockItemName],[Purchasing].[Suppliers].SupplierName from [Purchasing].[Suppliers] join [Warehouse].[StockItems] on ([Purchasing].[Suppliers].SupplierName='Litware, Inc.' and [Purchasing].[Suppliers].SupplierID=[Warehouse].[StockItems].SupplierID)
+
+--3 Mostrar listado de productos que tengan un precio por encima del promedio general
+select * from [Warehouse].[StockItems] where UnitPrice>(select AVG(UnitPrice) from [Warehouse].[StockItems])
+
+--4 Mostrar listado de productos que tienen un precio de venta recomendado superior en un 45%
+select * from [Warehouse].[StockItems] where RecommendedRetailPrice>45
+
+--5 Mostrar el total a pagar para cada orden de compra.
+select OrderID, SUM(Quantity*UnitPrice) as total from [Sales].[OrderLines]
+group by OrderID
+order by OrderID
+
+--6 Incrementar en un 15% el precio de los productos de color diferente a azul.
+UPDATE [Warehouse].[StockItems] 
+SET [Warehouse].[StockItems].UnitPrice = [Warehouse].[StockItems].UnitPrice + ([Warehouse].[StockItems].UnitPrice *0.15) where ColorID=4;
+select *  from [Warehouse].[StockItems] where ColorID=4
+
+--7 Decrementar en un 22% el precio de todos aquellos productos que han sido ordenados por el cliente cuyo nombre es Madhu Dwivediselect * from [Sales].[CustomerTransactions] where CustomerID=809;
+UPDATE [Warehouse].[StockItems]
+SET UnitPrice = [Warehouse].[StockItems].unitPrice - ([Warehouse].[StockItems].UnitPrice*0.22)
+FROM [Warehouse].[StockItems]
+INNER JOIN [Sales].[OrderLines]
+ON [Warehouse].[StockItems].StockItemID = [Sales].[OrderLines].StockItemID
+INNER JOIN [Sales].[Orders] 
+ON [Sales].[OrderLines].OrderID = [Sales].[Orders].OrderID
+INNER JOIN [Sales].[Customers] 
+ON [Sales].[Orders] .CustomerID = [Sales].[Customers].CustomerID
+WHERE CustomerName = 'Madhu Dwivedi'
+
+--8 Eliminar los clientes que tienen asociadas facturas que pertenecen al grupo de compras denominado Wingtip Toys
+delete from [Sales].[Customers]
+	where BuyingGroupID = (select top (1) Customers.BuyingGroupID from [Sales].[Customers] 
+	join [Sales].[BuyingGroups] on Customers.BuyingGroupID = BuyingGroups.BuyingGroupID
+	where BuyingGroups.BuyingGroupName='Wingtip Toys')
+
+--9 Incrementar en mil el stock de los productos cuyo nombre inician con la letra 'C' y que no hayan sido empacados en Bolsa
+UPDATE [Warehouse].[StockItemHoldings]
+SET QuantityOnHand = QuantityOnHand + 1000
+FROM [Warehouse].[StockItemHoldings]
+INNER JOIN [Warehouse].[StockItems]
+ON [Warehouse].[StockItemHoldings].StockItemID = [Warehouse].[StockItems].StockItemID
+INNER JOIN [Warehouse].[PackageTypes]
+ON [Warehouse].[StockItems].UnitPackageID = [Warehouse].[PackageTypes].PackageTypeID
+WHERE ((PackageTypeName <> 'Bag') AND (StockItemName LIKE 'c%'))
+
+--10 Mostrar listado de paises con su repectiva cantidad de clientes de forma descendente siempre y cuando esta cantidad supere la docena.
+SELECT CountryName, count([Application].[Countries].CountryID) as total
+FROM [Application].[Countries]
+INNER JOIN [Application].[StateProvinces] 
+ON [Application].[Countries].CountryID = [Application].[StateProvinces].CountryID
+INNER JOIN [Application].[Cities] 
+ON [Application].[StateProvinces].StateProvinceID = [Application].[Cities].StateProvinceID
+INNER JOIN [Sales].[Customers] 
+ON [Application].[Cities].CityID = [Sales].[Customers].DeliveryCityID
+GROUP BY CountryName
+HAVING count([Application].[Countries].CountryID) > 12
+ORDER BY total desc
